@@ -104,13 +104,13 @@ if USE_MYPYC:
         # Can be removed once we drop support for Python 3.5.2 and lower.
         'stubtest.py',
     )) + (
-        # Don't want to grab this accidentally
-        os.path.join('mypyc', 'lib-rt', 'setup.py'),
-    )
+                          # Don't want to grab this accidentally
+                          os.path.join('mypyc', 'lib-rt', 'setup.py'),
+                      )
 
     everything = (
-        [os.path.join('mypy', x) for x in find_package_data('mypy', ['*.py'])] +
-        [os.path.join('mypyc', x) for x in find_package_data('mypyc', ['*.py'], root='mypyc')])
+            [os.path.join('mypy', x) for x in find_package_data('mypy', ['*.py'])] +
+            [os.path.join('mypyc', x) for x in find_package_data('mypyc', ['*.py'], root='mypyc')])
     # Start with all the .py files
     all_real_pys = [x for x in everything
                     if not x.startswith(os.path.join('mypy', 'typeshed') + os.sep)]
@@ -142,6 +142,7 @@ if USE_MYPYC:
         sys.path.insert(0, use_other_mypyc)
 
     from mypyc.build import mypycify
+
     opt_level = os.getenv('MYPYC_OPT_LEVEL', '3')
     force_multifile = os.getenv('MYPYC_MULTI_FILE', '') == '1'
     ext_modules = mypycify(
@@ -153,7 +154,6 @@ if USE_MYPYC:
     )
 else:
     ext_modules = []
-
 
 classifiers = [
     'Development Status :: 4 - Beta',
@@ -168,8 +168,14 @@ classifiers = [
     'Topic :: Software Development',
 ]
 
+
+def flytrex_version(version):
+    delimiter = "." if "+" in version else "+"
+    return f"{version}{delimiter}flytrex-1"
+
+
 setup(name='mypy',
-      version=version,
+      version=flytrex_version(version),
       description=description,
       long_description=long_description,
       author='Jukka Lehtosalo',
