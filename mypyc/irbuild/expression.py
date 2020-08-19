@@ -16,18 +16,18 @@ from mypy.nodes import (
 from mypy.types import TupleType, get_proper_type
 
 from mypyc.ir.ops import (
-    Value, TupleGet, TupleSet, PrimitiveOp, BasicBlock, OpDescription, Assign
+    Value, TupleGet, TupleSet, PrimitiveOp, BasicBlock, OpDescription, Assign, LoadAddress
 )
 from mypyc.ir.rtypes import RTuple, object_rprimitive, is_none_rprimitive, is_int_rprimitive
 from mypyc.ir.func_ir import FUNC_CLASSMETHOD, FUNC_STATICMETHOD
-from mypyc.primitives.registry import name_ref_ops, CFunctionDescription
+from mypyc.primitives.registry import name_ref_ops, CFunctionDescription, builtin_names
 from mypyc.primitives.generic_ops import iter_op
 from mypyc.primitives.misc_ops import new_slice_op, ellipsis_op, type_op
 from mypyc.primitives.list_ops import new_list_op, list_append_op, list_extend_op
 from mypyc.primitives.tuple_ops import list_tuple_op
 from mypyc.primitives.dict_ops import dict_new_op, dict_set_item_op
 from mypyc.primitives.set_ops import new_set_op, set_add_op, set_update_op
-from mypyc.primitives.int_ops import int_logical_op_mapping
+from mypyc.primitives.int_ops import int_comparison_op_mapping
 from mypyc.irbuild.specialize import specializers
 from mypyc.irbuild.builder import IRBuilder
 from mypyc.irbuild.for_helpers import translate_list_comprehension, comprehension_helper
@@ -39,6 +39,16 @@ from mypyc.irbuild.for_helpers import translate_list_comprehension, comprehensio
 def transform_name_expr(builder: IRBuilder, expr: NameExpr) -> Value:
     assert expr.node, "RefExpr not resolved"
     fullname = expr.node.fullname
+    if fullname in builtin_names:
+        typ, src = builtin_names[fullname]
+        return builder.add(LoadAddress(typ, src, expr.line))
+    # special cases
+    if fullname == 'builtins.None':
+        return builder.none()
+    if fullname == 'builtins.True':
+        return builder.true()
+    if fullname == 'builtins.False':
+        return builder.false()
     if fullname in name_ref_ops:
         # Use special access op for this particular name.
         desc = name_ref_ops[fullname]
@@ -384,7 +394,7 @@ def transform_basic_comparison(builder: IRBuilder,
                                right: Value,
                                line: int) -> Value:
     if (is_int_rprimitive(left.type) and is_int_rprimitive(right.type)
-            and op in int_logical_op_mapping.keys()):
+            and op in int_comparison_op_mapping.keys()):
         return builder.compare_tagged(left, right, op, line)
     negate = False
     if op == 'is not':
@@ -424,7 +434,7 @@ def transform_bytes_expr(builder: IRBuilder, expr: BytesExpr) -> Value:
 
 
 def transform_ellipsis(builder: IRBuilder, o: EllipsisExpr) -> Value:
-    return builder.primitive_op(ellipsis_op, [], o.line)
+    return builder.add(LoadAddress(ellipsis_op.type, ellipsis_op.src, o.line))
 
 
 # Display expressions
@@ -575,6 +585,6 @@ def transform_slice_expr(builder: IRBuilder, expr: SliceExpr) -> Value:
 
 def transform_generator_expr(builder: IRBuilder, o: GeneratorExpr) -> Value:
     builder.warning('Treating generator comprehension as list', o.line)
-    return builder.primitive_op(
+    return builder.call_c(
         iter_op, [translate_list_comprehension(builder, o)], o.line
     )
