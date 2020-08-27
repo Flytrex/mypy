@@ -10,9 +10,10 @@ check that the priorities are configured properly.
 """
 
 from mypyc.ir.ops import ERR_NEVER, ERR_MAGIC, ERR_NEG_INT
-from mypyc.ir.rtypes import object_rprimitive, int_rprimitive, bool_rprimitive, c_int_rprimitive
+from mypyc.ir.rtypes import (
+    object_rprimitive, int_rprimitive, bool_rprimitive, c_int_rprimitive, pointer_rprimitive
+)
 from mypyc.primitives.registry import (
-    binary_op, custom_op, call_emit, simple_emit,
     c_binary_op, c_unary_op, c_method_op, c_function_op, c_custom_op
 )
 
@@ -31,7 +32,7 @@ for op, opid in [('==', 2),   # PY_EQ
                 return_type=object_rprimitive,
                 c_function_name='PyObject_RichCompare',
                 error_kind=ERR_MAGIC,
-                extra_int_constant=(opid, c_int_rprimitive),
+                extra_int_constants=[(opid, c_int_rprimitive)],
                 priority=0)
 
 for op, funcname in [('+', 'PyNumber_Add'),
@@ -71,12 +72,12 @@ for op, funcname in [('+=', 'PyNumber_InPlaceAdd'),
                 error_kind=ERR_MAGIC,
                 priority=0)
 
-binary_op(op='**',
-          arg_types=[object_rprimitive, object_rprimitive],
-          result_type=object_rprimitive,
-          error_kind=ERR_MAGIC,
-          emit=simple_emit('{dest} = PyNumber_Power({args[0]}, {args[1]}, Py_None);'),
-          priority=0)
+c_binary_op(name='**',
+            arg_types=[object_rprimitive, object_rprimitive],
+            return_type=object_rprimitive,
+            error_kind=ERR_MAGIC,
+            c_function_name='CPyNumber_Power',
+            priority=0)
 
 c_binary_op(
     name='in',
@@ -186,32 +187,31 @@ py_delattr_op = c_function_op(
 
 # Call callable object with N positional arguments: func(arg1, ..., argN)
 # Arguments are (func, arg1, ..., argN).
-py_call_op = custom_op(
-    arg_types=[object_rprimitive],
-    result_type=object_rprimitive,
-    is_var_arg=True,
+py_call_op = c_custom_op(
+    arg_types=[],
+    return_type=object_rprimitive,
+    c_function_name='PyObject_CallFunctionObjArgs',
     error_kind=ERR_MAGIC,
-    format_str='{dest} = py_call({comma_args})',
-    emit=simple_emit('{dest} = PyObject_CallFunctionObjArgs({comma_args}, NULL);'))
+    var_arg_type=object_rprimitive,
+    extra_int_constants=[(0, pointer_rprimitive)])
 
 # Call callable object with positional + keyword args: func(*args, **kwargs)
 # Arguments are (func, *args tuple, **kwargs dict).
-py_call_with_kwargs_op = custom_op(
+py_call_with_kwargs_op = c_custom_op(
     arg_types=[object_rprimitive, object_rprimitive, object_rprimitive],
-    result_type=object_rprimitive,
-    error_kind=ERR_MAGIC,
-    format_str='{dest} = py_call_with_kwargs({args[0]}, {args[1]}, {args[2]})',
-    emit=call_emit('PyObject_Call'))
+    return_type=object_rprimitive,
+    c_function_name='PyObject_Call',
+    error_kind=ERR_MAGIC)
 
 # Call method with positional arguments: obj.method(arg1, ...)
 # Arguments are (object, attribute name, arg1, ...).
-py_method_call_op = custom_op(
-    arg_types=[object_rprimitive],
-    result_type=object_rprimitive,
-    is_var_arg=True,
+py_method_call_op = c_custom_op(
+    arg_types=[],
+    return_type=object_rprimitive,
+    c_function_name='CPyObject_CallMethodObjArgs',
     error_kind=ERR_MAGIC,
-    format_str='{dest} = py_method_call({comma_args})',
-    emit=simple_emit('{dest} = CPyObject_CallMethodObjArgs({comma_args}, NULL);'))
+    var_arg_type=object_rprimitive,
+    extra_int_constants=[(0, pointer_rprimitive)])
 
 # len(obj)
 generic_len_op = c_custom_op(

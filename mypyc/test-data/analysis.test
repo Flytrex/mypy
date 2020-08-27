@@ -658,7 +658,7 @@ L2:
     goto L4
 L3:
     r7 = CPyTagged_IsLt_(a, i)
-    r8 = !r7
+    r8 = r7 ^ 1
     r0 = r8
 L4:
     if r0 goto L5 else goto L6 :: bool
@@ -692,6 +692,7 @@ L6:
 (3, 1)   {a}                     {a}
 (3, 2)   {a}                     {a}
 (3, 3)   {a}                     {a}
+(3, 4)   {a}                     {a}
 (4, 0)   {a}                     {a}
 (5, 0)   {a}                     {a}
 (5, 1)   {a}                     {a}
@@ -732,7 +733,7 @@ L1:
 L2:
     r1 = CPy_CatchError()
     r2 = builtins :: module
-    r3 = unicode_1 :: static  ('Exception')
+    r3 = load_global CPyStatic_unicode_1 :: static  ('Exception')
     r4 = CPyObject_GetAttr(r2, r3)
     if is_error(r4) goto L8 (error at lol:4) else goto L3
 L3:

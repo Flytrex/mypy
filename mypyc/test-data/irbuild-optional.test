@@ -38,7 +38,7 @@ def f(x):
 L0:
     r0 = box(None, 1)
     r1 = x == r0
-    r2 = !r1
+    r2 = r1 ^ 1
     if r2 goto L1 else goto L2 :: bool
 L1:
     return 2
@@ -193,7 +193,7 @@ L0:
     y = r0
     r1 = box(None, 1)
     r2 = x == r1
-    r3 = !r2
+    r3 = r2 ^ 1
     if r3 goto L1 else goto L2 :: bool
 L1:
     r4 = cast(__main__.A, x)
@@ -242,7 +242,7 @@ L4:
 L5:
     r7 = box(None, 1)
     r8 = x == r7
-    r9 = !r8
+    r9 = r8 ^ 1
     if r9 goto L6 else goto L7 :: bool
 L6:
     r10 = unbox(int, x)
@@ -344,7 +344,7 @@ def set(o, s):
     s, r0 :: str
     r1 :: int32
 L0:
-    r0 = unicode_5 :: static  ('a')
+    r0 = load_global CPyStatic_unicode_5 :: static  ('a')
     r1 = PyObject_SetAttr(o, r0, s)
     return 1
 
@@ -462,7 +462,7 @@ L1:
     goto L3
 L2:
     r5 = o
-    r6 = unicode_7 :: static  ('x')
+    r6 = load_global CPyStatic_unicode_7 :: static  ('x')
     r7 = CPyObject_GetAttr(r5, r6)
     r8 = unbox(int, r7)
     r0 = r8
@@ -490,7 +490,7 @@ L1:
     goto L3
 L2:
     r5 = o
-    r6 = unicode_7 :: static  ('x')
+    r6 = load_global CPyStatic_unicode_7 :: static  ('x')
     r7 = CPyObject_GetAttr(r5, r6)
     r8 = unbox(int, r7)
     r0 = r8
@@ -518,7 +518,7 @@ def f(o):
     r3 :: object
 L0:
     r1 = o
-    r2 = unicode_6 :: static  ('x')
+    r2 = load_global CPyStatic_unicode_6 :: static  ('x')
     r3 = CPyObject_GetAttr(r1, r2)
     r0 = r3
 L1:
