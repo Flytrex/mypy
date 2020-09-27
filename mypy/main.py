@@ -75,14 +75,11 @@ def main(script_path: Optional[str],
             new_messages = formatter.fit_in_terminal(new_messages)
         messages.extend(new_messages)
         f = stderr if serious else stdout
-        try:
-            for msg in new_messages:
-                if options.color_output:
-                    msg = formatter.colorize(msg)
-                f.write(msg + '\n')
-            f.flush()
-        except BrokenPipeError:
-            sys.exit(2)
+        for msg in new_messages:
+            if options.color_output:
+                msg = formatter.colorize(msg)
+            f.write(msg + '\n')
+        f.flush()
 
     serious = False
     blockers = False
@@ -577,7 +574,7 @@ def process_options(args: List[str],
                         group=lint_group)
     add_invertible_flag('--warn-unreachable', default=False, strict_flag=False,
                         help="Warn about statements or expressions inferred to be"
-                             " unreachable or redundant",
+                             " unreachable",
                         group=lint_group)
 
     # Note: this group is intentionally added here even though we don't add
