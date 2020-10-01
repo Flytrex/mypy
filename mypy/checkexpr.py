@@ -228,6 +228,8 @@ class ExpressionChecker(ExpressionVisitor[Type]):
             result = self.alias_type_in_runtime_context(node, node.no_args, e,
                                                         alias_definition=e.is_alias_rvalue
                                                         or lvalue)
+        elif isinstance(node, (TypeVarExpr, ParamSpecExpr)):
+            result = self.object_type()
         else:
             if isinstance(node, PlaceholderNode):
                 assert False, 'PlaceholderNode %r leaked to checker' % node.fullname
@@ -315,7 +317,7 @@ class ExpressionChecker(ExpressionVisitor[Type]):
                 self.chk.in_checked_function() and
                 isinstance(callee_type, CallableType)
                 and callee_type.implicit):
-            return self.msg.untyped_function_call(callee_type, e)
+            self.msg.untyped_function_call(callee_type, e)
         # Figure out the full name of the callee for plugin lookup.
         object_type = None
         member = None

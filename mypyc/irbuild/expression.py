@@ -4,7 +4,7 @@ The top-level AST transformation logic is implemented in mypyc.irbuild.visitor
 and mypyc.irbuild.builder.
 """
 
-from typing import List, Optional, Union, Callable
+from typing import List, Optional, Union, Callable, cast
 
 from mypy.nodes import (
     Expression, NameExpr, MemberExpr, SuperExpr, CallExpr, UnaryExpr, OpExpr, IndexExpr,
@@ -13,9 +13,9 @@ from mypy.nodes import (
     SetComprehension, DictionaryComprehension, SliceExpr, GeneratorExpr, CastExpr, StarExpr,
     Var, RefExpr, MypyFile, TypeInfo, TypeApplication, LDEF, ARG_POS
 )
-from mypy.types import TupleType, get_proper_type
+from mypy.types import TupleType, get_proper_type, Instance
 
-from mypyc.common import MAX_LITERAL_SHORT_INT
+from mypyc.common import MAX_SHORT_INT
 from mypyc.ir.ops import (
     Value, TupleGet, TupleSet, BasicBlock, Assign, LoadAddress
 )
@@ -373,7 +373,7 @@ def try_gen_slice_op(builder: IRBuilder, base: Value, index: SliceExpr) -> Optio
         else:
             # Replace missing end index with the largest short integer
             # (a sequence can't be longer).
-            end = builder.load_static_int(MAX_LITERAL_SHORT_INT)
+            end = builder.load_static_int(MAX_SHORT_INT)
         candidates = [list_slice_op, tuple_slice_op, str_slice_op]
         return builder.builder.matching_call_c(candidates, [base, begin, end], index.line)
 
@@ -406,8 +406,56 @@ def transform_conditional_expr(builder: IRBuilder, expr: ConditionalExpr) -> Val
 
 
 def transform_comparison_expr(builder: IRBuilder, e: ComparisonExpr) -> Value:
-    # TODO: Don't produce an expression when used in conditional context
+    # x in (...)/[...]
+    # x not in (...)/[...]
+    if (e.operators[0] in ['in', 'not in']
+            and len(e.operators) == 1
+            and isinstance(e.operands[1], (TupleExpr, ListExpr))):
+        items = e.operands[1].items
+        n_items = len(items)
+        # x in y -> x == y[0] or ... or x == y[n]
+        # x not in y -> x != y[0] and ... and x != y[n]
+        # 16 is arbitrarily chosen to limit code size
+        if 1 < n_items < 16:
+            if e.operators[0] == 'in':
+                bin_op = 'or'
+                cmp_op = '=='
+            else:
+                bin_op = 'and'
+                cmp_op = '!='
+            lhs = e.operands[0]
+            mypy_file = builder.graph['builtins'].tree
+            assert mypy_file is not None
+            bool_type = Instance(cast(TypeInfo, mypy_file.names['bool'].node), [])
+            exprs = []
+            for item in items:
+                expr = ComparisonExpr([cmp_op], [lhs, item])
+                builder.types[expr] = bool_type
+                exprs.append(expr)
 
+            or_expr = exprs.pop(0)  # type: Expression
+            for expr in exprs:
+                or_expr = OpExpr(bin_op, or_expr, expr)
+                builder.types[or_expr] = bool_type
+            return builder.accept(or_expr)
+        # x in [y]/(y) -> x == y
+        # x not in [y]/(y) -> x != y
+        elif n_items == 1:
+            if e.operators[0] == 'in':
+                cmp_op = '=='
+            else:
+                cmp_op = '!='
+            e.operators = [cmp_op]
+            e.operands[1] = items[0]
+        # x in []/() -> False
+        # x not in []/() -> True
+        elif n_items == 0:
+            if e.operators[0] == 'in':
+                return builder.false()
+            else:
+                return builder.true()
+
+    # TODO: Don't produce an expression when used in conditional context
     # All of the trickiness here is due to support for chained conditionals
     # (`e1 < e2 > e3`, etc). `e1 < e2 > e3` is approximately equivalent to
     # `e1 < e2 and e2 > e3` except that `e2` is only evaluated once.
