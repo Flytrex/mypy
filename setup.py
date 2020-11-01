@@ -171,7 +171,7 @@ classifiers = [
 
 def flytrex_version(version):
     delimiter = "." if "+" in version else "+"
-    return f"{version}{delimiter}flytrex-5"
+    return f"{version}{delimiter}flytrex-6"
 
 
 setup(name='mypy',
